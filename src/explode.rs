@@ -28,7 +28,7 @@ pub fn visit_serialize(value: impl Serialize, path: impl AsRef<Path>) -> anyhow:
 /// explode::visit_table(&table, dir.path());
 ///
 /// assert_eq!("\"hello\"", fs::read_to_string(dir.path().join("foo")).unwrap());
-/// assert_eq!("\"world\"", fs::read_to_string(dir.path(0.join("bar")).unwrap());
+/// assert_eq!("\"world\"", fs::read_to_string(dir.path().join("bar")).unwrap());
 /// ```
 pub fn visit_table(table: &toml::value::Table, path: impl AsRef<Path>) -> anyhow::Result<()> {
     fs::create_dir_all(&path)?;

@@ -1,7 +1,7 @@
 use clap::Clap;
 use explodesh::{
     cli::{Cli, Command},
-    explode,
+    explode, implode,
 };
 use std::{fs, path::PathBuf};
 
@@ -13,11 +13,12 @@ fn main() -> anyhow::Result<()> {
 
     match opts.cmd {
         Command::Explode => {
-            let doc: toml::Value = toml::from_str(&fs::read_to_string(source)?)?;
+            let doc = toml::from_str(&fs::read_to_string(source)?)?;
             explode::visit_value(&doc, destination)?;
         }
         Command::Implode => {
-            println!("IMPLODE");
+            let doc = implode::walk(&source)?;
+            fs::write(&destination, toml::to_string(&doc)?)?;
         }
     }
 
