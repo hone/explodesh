@@ -16,7 +16,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-  build:
+  build-linux:
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -35,8 +35,31 @@ jobs:
         run: strip target/x86_64-unknown-linux-musl/release/explodesh
       - uses: actions/upload-artifact@v2
         with:
-          name: explodesh
+          name: explodesh-ubuntu-latest
           path: target/x86_64-unknown-linux-musl/release/explodesh
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    needs: test
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - name: Strip Binary
+        if: matrix.os != 'windows-latest'
+        run: strip target/release/explodesh
+      - uses: actions/upload-artifact@v2
+        with:
+          name: explodesh-${{ matrix.os }}
+          path: target/release/explodesh
+
   release:
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
@@ -49,9 +72,10 @@ jobs:
       - name: 'Download list binary'
         uses: actions/download-artifact@v2
         with:
-          name: explodesh
+          name: explodesh-ubuntu-latest
       - name: Package Tarball
         run: |
+          mv explodesh-ubuntu-latest explodesh
           chmod +x explodesh
           tar -vzcf linux.tgz explodesh
       - name: Create Release
