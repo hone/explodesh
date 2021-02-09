@@ -17,7 +17,7 @@ fn main() -> anyhow::Result<()> {
             explode::visit_value(&doc, destination)?;
         }
         Command::Implode => {
-            let doc = implode::walk(&source)?;
+            let doc = implode::deserialize_any(&source)?;
             fs::write(&destination, toml::to_string(&doc)?)?;
         }
     }

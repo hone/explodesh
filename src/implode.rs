@@ -7,7 +7,8 @@ use std::{
     str::FromStr,
 };
 
-pub fn walk(path: impl AsRef<Path>) -> anyhow::Result<toml::Value> {
+/// Deserialize path of files/folders into a `toml::Value`
+pub fn deserialize_any(path: impl AsRef<Path>) -> anyhow::Result<toml::Value> {
     let attr = fs::metadata(&path)?;
     if attr.is_file() {
         let contents = fs::read_to_string(&path)?;
@@ -141,7 +142,7 @@ pub fn deserialize_array(files: &Vec<DirEntry>) -> anyhow::Result<toml::Value> {
     {
         let array = files
             .iter()
-            .map(|entry| walk(&entry.path()).unwrap())
+            .map(|entry| deserialize_any(&entry.path()).unwrap())
             .collect::<Vec<toml::value::Value>>();
 
         Ok(toml::Value::Array(array))
@@ -171,8 +172,7 @@ pub fn deserialize_table(files: &Vec<DirEntry>) -> anyhow::Result<toml::Value> {
     for entry in files.iter() {
         // this unwrap is handled by everything being a valid DirEntry
         let key = String::from(entry.file_name().as_os_str().to_str().unwrap());
-        println!("key: {}", &key);
-        table.insert(key, walk(entry.path()).unwrap());
+        table.insert(key, deserialize_any(entry.path()).unwrap());
     }
     Ok(toml::Value::Table(table))
 }
