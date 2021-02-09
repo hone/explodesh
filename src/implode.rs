@@ -171,8 +171,14 @@ pub fn deserialize_table(files: &Vec<DirEntry>) -> anyhow::Result<toml::Value> {
     let mut table = toml::value::Table::new();
     for entry in files.iter() {
         // this unwrap is handled by everything being a valid DirEntry
-        let key = String::from(entry.file_name().as_os_str().to_str().unwrap());
-        table.insert(key, deserialize_any(entry.path()).unwrap());
+        let key = String::from(
+            entry
+                .file_name()
+                .as_os_str()
+                .to_str()
+                .ok_or(anyhow!("Invalid UTF-8 characters in filename"))?,
+        );
+        table.insert(key, deserialize_any(entry.path())?);
     }
     Ok(toml::Value::Table(table))
 }
