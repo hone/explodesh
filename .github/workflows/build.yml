@@ -35,7 +35,7 @@ jobs:
         run: strip target/x86_64-unknown-linux-musl/release/explodesh
       - uses: actions/upload-artifact@v2
         with:
-          name: explodesh-ubuntu-latest
+          name: explodesh-linux
           path: target/x86_64-unknown-linux-musl/release/explodesh
   build-windows:
     needs: test
@@ -51,7 +51,7 @@ jobs:
           args: --release
       - uses: actions/upload-artifact@v2
         with:
-          name: explodesh-${{ matrix.os }}
+          name: explodesh-windows
           path: target/release/explodesh.exe
   build-macos:
     needs: test
@@ -69,60 +69,57 @@ jobs:
         run: strip target/release/explodesh
       - uses: actions/upload-artifact@v2
         with:
-          name: explodesh-${{ matrix.os }}
+          name: explodesh-macos
           path: target/release/explodesh
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            asset: linux
-          - os: windows-latest
-            asset: windows
-          - os: macos-latest
     needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: 'Get Version'
+        id: version
         run: |
-          [[ $GITHUB_REF =~ ^refs\/tags\/(.*)$ ]] && version=${BASH_REMATCH[1]}
-          echo "::set-env name=VERSION::$version"
+          [[ $GITHUB_REF =~ ^refs\/tags\/(.*)$ ]] && VERSION=${BASH_REMATCH[1]}
+          echo "::set-output name=version::$VERSION"
       - name: 'Download Linux binary'
         uses: actions/download-artifact@v2
         with:
-          name: explodesh-ubuntu-latest
-      - name: 'Download Windows binary'
-        uses: actions/download-artifact@v2
-        with:
-          name: explodesh-windows-latest
-      - name: 'Download MacOS binary'
-        uses: actions/download-artifact@v2
-        with:
-          name: explodesh-macos-latest
-      - name: Package Tarball
+          name: explodesh-linux
+      - name: Package Linux Tarball
         run: |
-          mv explodesh-ubuntu-latest explodesh
+          ls -l
           chmod +x explodesh
           tar -vzcf linux.tgz explodesh
           rm explodesh
-          mv explodesh-windows-latest explodesh.exe
-          chmod +x explodesh explodesh.exe
+      - name: 'Download Windows binary'
+        uses: actions/download-artifact@v2
+        with:
+          name: explodesh-windows
+      - name: Package Windows Tarball
+        run: |
+          chmod +x explodesh.exe
           tar -vzcf windows.tgz explodesh.exe
-          mv explodesh-macos-latest explodesh
+          rm explodesh.exe
+      - name: 'Download MacOS binary'
+        uses: actions/download-artifact@v2
+        with:
+          name: explodesh-macos
+      - name: Package MacOS Tarball
+        run: |
           chmod +x explodesh
           tar -vzcf macos.tgz explodesh
+          rm explodesh
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.VERSION }}
-          release_name: Release ${{ env.VERSION }}
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: Release ${{ steps.version.outputs.version }}
           body: |
-            # explodesh ${{ env.VERSION }}
+            # explodesh ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
       - name: Upload Linux Asset
@@ -132,7 +129,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./linux.tgz
-          asset_name: explodesh-${{ env.VERSION }}-linux.tgz
+          asset_name: explodesh-${{ steps.version.outputs.version }}-linux.tgz
           asset_content_type: application/gzip
       - name: Upload Windows Asset
         uses: actions/upload-release-asset@v1
@@ -141,7 +138,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./windows.tgz
-          asset_name: explodesh-${{ env.VERSION }}-windows.tgz
+          asset_name: explodesh-${{ steps.version.outputs.version }}-windows.tgz
           asset_content_type: application/gzip
       - name: Upload MacOS Asset
         uses: actions/upload-release-asset@v1
@@ -150,5 +147,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macos.tgz
-          asset_name: explodesh-${{ env.VERSION }}-macos.tgz
+          asset_name: explodesh-${{ steps.version.outputs.version }}-macos.tgz
           asset_content_type: application/gzip
