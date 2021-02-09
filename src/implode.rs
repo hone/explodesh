@@ -140,9 +140,24 @@ pub fn deserialize_array(files: &Vec<DirEntry>) -> anyhow::Result<toml::Value> {
         && indexes[indexes.len() - 1] == files.len() - 1
         && indexes.len() == files.len()
     {
-        let array = files
+        let mut indexed_files: Vec<(usize, &DirEntry)> = files
             .iter()
-            .map(|entry| deserialize_any(&entry.path()).unwrap())
+            .map(|entry| {
+                // these unwraps are checked before when generating indexes
+                let filename = entry
+                    .file_name()
+                    .as_os_str()
+                    .to_str()
+                    .unwrap()
+                    .parse::<usize>()
+                    .unwrap();
+                (filename, entry)
+            })
+            .collect();
+        indexed_files.sort_by(|(key_a, _), (key_b, _)| key_a.cmp(key_b));
+        let array = indexed_files
+            .iter()
+            .map(|(_, entry)| deserialize_any(&entry.path()).unwrap())
             .collect::<Vec<toml::value::Value>>();
 
         Ok(toml::Value::Array(array))
@@ -199,6 +214,28 @@ mod tests {
             .collect();
 
         assert!(deserialize_array(&files).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn arrays_indexes_based_on_filename() -> anyhow::Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let entries = [(2, "two"), (1, "one"), (3, "three"), (0, "zero")];
+        for (index, value) in entries.iter() {
+            fs::write(
+                tmp_dir.path().join(index.to_string()),
+                toml::to_string(value)?,
+            )?;
+        }
+        let files = fs::read_dir(tmp_dir.path())?
+            .filter_map(|entry| entry.ok())
+            .collect();
+
+        let array = deserialize_array(&files)?;
+        for (index, value) in entries.iter() {
+            assert_eq!(array[index], toml::Value::String(value.to_string()));
+        }
 
         Ok(())
     }
