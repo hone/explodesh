@@ -28,6 +28,8 @@ jobs:
           use-cross: true
           command: build
           args: --release --target x86_64-unknown-linux-musl
+      - name: Strip Binary
+        run: strip target/x86_64-unknown-linux-musl/release/explodesh
       - uses: actions/upload-artifact@v2
         with:
           name: explodesh
