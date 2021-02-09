@@ -119,42 +119,32 @@ pub fn deserialize_datetime(input: impl AsRef<str>) -> anyhow::Result<toml::Valu
 /// assert_eq!(value[2], toml::Value::String(String::from("hello")));
 /// ```
 pub fn deserialize_array(files: &Vec<DirEntry>) -> anyhow::Result<toml::Value> {
-    // need to create a collection since `Iterator::map` will consume the iterator.
-    let mut indexes: Vec<usize> = files
+    // Array validation is made up of two parts:
+    // * that all the files in the folder are unsigned integers
+    // * that they are sequentially ordered starting from 0 with no duplicates
+    let mut indexed_files: Vec<(usize, &DirEntry)> = files
         .iter()
         .map(|entry| {
+            // these unwraps are checked before when generating indexes
             entry
                 .file_name()
                 .as_os_str()
                 .to_str()
                 .unwrap_or("Not valid UTF-8")
                 .parse::<usize>()
-                .map_err(|_| "Invalid Integer")
+                .map_err(|_| "Invalid Unsigned Integer")
+                .map(|filename| (filename, entry))
         })
-        .collect::<Result<Vec<usize>, &'static str>>()
-        // the trait `StdError` is not implemented for Result<_, &str> so can't use `?'
+        .collect::<Result<Vec<(usize, &DirEntry)>, &'static str>>()
         .map_err(|err| anyhow!(err))?;
-    indexes.sort();
+    indexed_files.sort_by(|(key_a, _), (key_b, _)| key_a.cmp(key_b));
+
+    let mut indexes: Vec<&usize> = indexed_files.iter().map(|(key, _)| key).collect();
     indexes.dedup();
-    if indexes[0] == 0
-        && indexes[indexes.len() - 1] == files.len() - 1
+    if *indexes[0] == 0
+        && *indexes[indexes.len() - 1] == files.len() - 1
         && indexes.len() == files.len()
     {
-        let mut indexed_files: Vec<(usize, &DirEntry)> = files
-            .iter()
-            .map(|entry| {
-                // these unwraps are checked before when generating indexes
-                let filename = entry
-                    .file_name()
-                    .as_os_str()
-                    .to_str()
-                    .unwrap()
-                    .parse::<usize>()
-                    .unwrap();
-                (filename, entry)
-            })
-            .collect();
-        indexed_files.sort_by(|(key_a, _), (key_b, _)| key_a.cmp(key_b));
         let array = indexed_files
             .iter()
             .map(|(_, entry)| deserialize_any(&entry.path()).unwrap())
