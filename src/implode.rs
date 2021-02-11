@@ -18,7 +18,8 @@ pub fn deserialize_any(path: impl AsRef<Path>) -> anyhow::Result<toml::Value> {
             .or_else(|_| deserialize_str(&contents))
             .or_else(|_| deserialize_i64(&contents))
             .or_else(|_| deserialize_f64(&contents))
-            .or_else(|_| deserialize_datetime(&contents));
+            .or_else(|_| deserialize_datetime(&contents))
+            .map_err(|_| anyhow!("Could not parse TOML value for file {:?}", &path.as_ref()));
         Ok(value?)
     } else if attr.is_dir() {
         let files = fs::read_dir(&path)?
@@ -27,7 +28,7 @@ pub fn deserialize_any(path: impl AsRef<Path>) -> anyhow::Result<toml::Value> {
 
         deserialize_array(&files).or_else(|_| deserialize_table(&files))
     } else {
-        Err(anyhow!("Not a file or a dictory."))
+        Err(anyhow!("Not a file or a dictory: {:?}", &path.as_ref()))
     }
 }
 
