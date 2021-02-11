@@ -88,7 +88,6 @@ jobs:
           name: explodesh-linux
       - name: Package Linux Tarball
         run: |
-          ls -l
           chmod +x explodesh
           tar -vzcf linux.tgz explodesh
           rm explodesh
