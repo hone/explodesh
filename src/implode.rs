@@ -12,6 +12,8 @@ pub fn deserialize_any(path: impl AsRef<Path>) -> anyhow::Result<toml::Value> {
     let attr = fs::metadata(&path)?;
     if attr.is_file() {
         let contents = fs::read_to_string(&path)?;
+        // newlines are often inserted when writing files by hand or using `echo` in shell.
+        let contents = contents.trim_end();
         let value = deserialize_bool(&contents)
             .or_else(|_| deserialize_str(&contents))
             .or_else(|_| deserialize_i64(&contents))
@@ -195,6 +197,19 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
+    fn deserialize_any_newline() -> anyhow::Result<()> {
+        let tmp_dir = TempDir::new()?;
+        fs::write(
+            tmp_dir.path().join("foo"),
+            r#""foo"
+"#,
+        )?;
+        assert!(deserialize_any(tmp_dir.path()).is_ok());
+
+        Ok(())
+    }
+
+    #[test]
     fn arrays_must_have_sequential_keys() -> anyhow::Result<()> {
         let tmp_dir = TempDir::new()?;
         fs::write(tmp_dir.path().join("0"), "true")?;
@@ -226,6 +241,20 @@ mod tests {
         for (index, value) in entries.iter() {
             assert_eq!(array[index], toml::Value::String(value.to_string()));
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_any_simple() -> anyhow::Result<()> {
+        let tmp_dir = TempDir::new()?;
+        fs::write(tmp_dir.path().join("foo"), r#""bar""#)?;
+
+        let value = deserialize_any(tmp_dir.path())?;
+        assert_eq!(
+            value.as_table().unwrap().get("foo").unwrap(),
+            &toml::Value::String(String::from("bar"))
+        );
 
         Ok(())
     }
